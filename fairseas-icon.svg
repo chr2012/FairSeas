@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b2a4a"/><stop offset=".62" stop-color="#1f6f9c"/><stop offset="1" stop-color="#46b6c9"/></linearGradient>
+<linearGradient id="w1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a8fb3"/><stop offset="1" stop-color="#0f5c86"/></linearGradient>
+<linearGradient id="w2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14688f"/><stop offset="1" stop-color="#0a3d63"/></linearGradient>
+<linearGradient id="w3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0c4470"/><stop offset="1" stop-color="#06233f"/></linearGradient>
+<linearGradient id="sail" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d6e8f2"/></linearGradient>
+</defs>
+<rect width="512" height="512" fill="url(#sky)"/>
+<circle cx="372" cy="170" r="46" fill="#ffc43d"/>
+<circle cx="372" cy="170" r="66" fill="#ffd36b" opacity=".2"/>
+<!-- wind lines -->
+<g fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="7" stroke-linecap="round">
+<path d="M70 150 q40 -22 84 -4 q26 10 40 -8"/>
+<path d="M92 196 q30 -14 60 -2"/>
+</g>
+<!-- back wave -->
+<path d="M0 322 q64 -34 128 -6 t128 -2 t128 4 t128 -4 V512 H0Z" fill="url(#w1)"/>
+<!-- boat -->
+<g transform="translate(0,6)">
+<path d="M258 96 C 360 112, 414 214, 410 296 L258 296Z" fill="url(#sail)"/>
+<path d="M246 120 L150 308 Q202 322 242 300Z" fill="#ffc43d"/>
+<path d="M258 92 L146 312" stroke="#f3f8fb" stroke-width="5" stroke-linecap="round"/>
+<rect x="250" y="84" width="9" height="224" rx="4.5" fill="#f3f8fb"/>
+<rect x="252" y="294" width="164" height="9" rx="4.5" fill="#f3f8fb"/>
+<path d="M132 318 H410 Q396 364 352 372 H190 Q146 364 132 318Z" fill="#f3f8fb"/>
+<path d="M140 336 H402" stroke="#ffc43d" stroke-width="9" stroke-linecap="round"/>
+</g>
+<!-- following seas -->
+<path d="M0 366 q64 -40 128 -8 t128 -2 t128 6 t128 -6 V512 H0Z" fill="url(#w2)"/>
+<path d="M0 420 q64 -34 128 -6 t128 0 t128 6 t128 -6 V512 H0Z" fill="url(#w3)"/>
+<g fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="6" stroke-linecap="round">
+<path d="M40 392 q30 -20 64 -4"/><path d="M300 400 q34 -22 72 -4"/><path d="M150 452 q34 -18 70 -4"/>
+</g>
+</svg>
