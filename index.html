@@ -141,10 +141,11 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .fname{font-size:17px;font-weight:700;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 4px rgba(0,0,0,.7)}
 .fbot{display:flex;align-items:flex-end;justify-content:space-between;gap:6px}
 .fdet{text-align:right;text-shadow:0 1px 4px rgba(0,0,0,.7);padding-bottom:3px}
-.fhl{font-size:15px;font-weight:700;white-space:nowrap}
+.fhl{font-size:15px;font-weight:700;white-space:nowrap;line-height:1.15;text-shadow:0 1px 4px rgba(0,0,0,.7);margin:0 2px 0 -2px}
 .fhl span{font-size:11px;margin-right:1px}
-.fwind{display:flex;align-items:center;justify-content:flex-end;gap:4px;font-size:13px;font-weight:600;color:#dbe6f3;margin-top:3px;white-space:nowrap}
-.fwind b{font-size:16px}
+.fwind{display:flex;align-items:center;gap:5px;padding-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.fwind b{font-size:20px}
+.fwind svg{width:24px;height:24px}
 .fav{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .fav.drag{z-index:6;box-shadow:0 12px 32px rgba(0,0,0,.65);transition:none;opacity:.96}
 .favlist.dragging{overflow:hidden}
@@ -418,12 +419,13 @@ function sky(c,day){const k=kind(c);
 /* ---------- location ---------- */
 const getJSON=async(u,t=9000)=>{const c=new AbortController();const id=setTimeout(()=>c.abort(),t);
   try{const r=await fetch(u,{signal:c.signal});if(!r.ok)throw new Error(r.status);return await r.json()}finally{clearTimeout(id)}};
+const cleanName=n=>(n||'').replace(/\s+(Regional\s+)?Municipality\b/gi,'').replace(/\s+Kommune\b/gi,'').replace(/,\s*,/g,',').replace(/,\s*$/,'');
 async function revName(lat,lon){
   try{const j=await getJSON(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&addressdetails=1&accept-language=en&lat=${lat}&lon=${lon}`);
     const a=j.address||{};const place=a.village||a.hamlet||a.suburb||a.neighbourhood||a.town||a.city||a.municipality||a.county;
     const muni=(a.municipality||'').replace(/s?\s*Regionskommune$/i,'').replace(/\s+(Kommune|kommun)$/i,'');
     const reg=a.island||(a.country_code==='dk'&&muni?muni:(a.state||a.region||(a.country_code==='us'?'':a.country)));
-    if(place)return [place,reg].filter(Boolean).join(', ')}catch(e){}
+    if(place)return cleanName([place,reg].filter(Boolean).join(', '))}catch(e){}
   try{const j=await getJSON(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
     return [j.locality||j.city,j.principalSubdivision].filter(Boolean).join(', ')}catch(e){}
   return ''}
@@ -582,7 +584,7 @@ function render(){
   const pcol=pd<-3?'#ff8a5c':pd<-1?'#ffc266':pd>1?'#8fe3a8':'#dbe6f3';
   $('hsky').style.background=sky(c.weather_code,day);
   const hk=fkey(LOC.lat,LOC.lon);if(hk!==HK){HK=hk;$('hmap').innerHTML=tileBg(LOC.lat,LOC.lon,430,318,10)}
-  $('place').innerHTML=pin+`<span>${LOC.name}</span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>`;
+  $('place').innerHTML=pin+`<span>${esc(cleanName(LOC.name))}</span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>`;
   $('temp').innerHTML=`${T(c.temperature_2m)}<sup>°${P.t}</sup>`;
   $('hico').innerHTML=icon(c.weather_code,day);
   $('cond').textContent=WX[c.weather_code]||'';
@@ -918,7 +920,7 @@ function renderFavs(){
   if(!FAVS.length){el.innerHTML='<div class="favempty">No favorites yet.<br>Tap the ☆ by the place name, or in the map picker, to save a location here.</div>';return}
   el.innerHTML=FAVS.map((f,i)=>{const w=FW[fkey(f.lat,f.lon)],act=LOC&&near(f,LOC);
     return `<div class="fav${act?' act':''}" data-i="${i}"><div class="fmap">${tileBg(f.lat,f.lon,244,104,10)}</div>
-      <div class="fin"><div class="fname">${esc(f.name)}</div><div class="fbot"><div class="fwx">${w?`<b>${T(w.t)}°</b>${icon(w.code,w.day)}`:''}</div>${w&&w.ws!=null?`<div class="fdet"><div class="fhl"><span style="color:#ffc93c">▲</span>${w.hi!=null?T(w.hi)+'°':'–'} <span style="color:#5cb8ff">▼</span>${w.lo!=null?T(w.lo)+'°':'–'}</div><div class="fwind">${favArrow(w.wd,wcol(w.ws))}<b style="color:${wcol(w.ws)}">${W(w.ws)}</b> ${P.w} ${w.wd!=null?card(w.wd):''}</div></div>`:''}</div></div>
+      <div class="fin"><div class="fname">${esc(cleanName(f.name))}</div><div class="fbot"><div class="fwx">${w?`<b>${T(w.t)}°</b>${w.hi!=null?`<div class="fhl"><div><span style="color:#ffc93c">▲</span>${T(w.hi)}°</div><div><span style="color:#5cb8ff">▼</span>${T(w.lo)}°</div></div>`:''}${icon(w.code,w.day)}`:''}</div>${w&&w.ws!=null?`<div class="fwind">${favArrow(w.wd,wcol(w.ws))}<b style="color:${wcol(w.ws)}">${W(w.ws)}</b></div>`:''}</div></div>
       <button class="fstar" data-star="${i}" aria-label="Remove favorite">${starSvg(true,24)}</button></div>`}).join('');
 }
 function updateStars(){
