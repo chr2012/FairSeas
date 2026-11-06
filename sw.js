@@ -1,6 +1,6 @@
 // FairSeas service worker: caches the app shell so it opens instantly and offline.
 // Live weather/marine/geocoding requests always go to the network.
-const CACHE='fairseas-v6';
+const CACHE='fairseas-v7';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});

@@ -454,9 +454,9 @@ async function fetchWx(l){
   '&current=temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m,is_day,precipitation,weather_code,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m,visibility'+
   '&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day,visibility'+
   '&daily=weather_code,sunrise,sunset,temperature_2m_max,temperature_2m_min,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant'+
-  '&wind_speed_unit=kn&timezone=auto&past_days=1&forecast_days=8';
+  '&wind_speed_unit=kn&timezone=auto&past_days=1&forecast_days=10';
   const mu='https://marine-api.open-meteo.com/v1/marine?latitude='+l.lat+'&longitude='+l.lon+
-  '&hourly=wave_height,wave_period,wave_direction,sea_surface_temperature,sea_level_height_msl,ocean_current_velocity,ocean_current_direction&daily=wave_height_max,wave_period_max,wave_direction_dominant&timezone=auto&past_days=1&forecast_days=8';
+  '&hourly=wave_height,wave_period,wave_direction,sea_surface_temperature,sea_level_height_msl,ocean_current_velocity,ocean_current_direction&daily=wave_height_max,wave_period_max,wave_direction_dominant&timezone=auto&past_days=1&forecast_days=10';
   const [w,m]=await Promise.all([getJSON(u,15000),getJSON(mu,15000).catch(()=>null)]);
   w.marine=m&&m.hourly?m.hourly:null;w.marineDaily=m&&m.daily?m.daily:null;w.marineUnits=m&&m.hourly_units?m.hourly_units:null;   // null = no marine data for this spot (e.g. inland)
   return w;
@@ -464,7 +464,7 @@ async function fetchWx(l){
 function demo(){ // synthetic data for layout checks (?demo)
   const now=new Date(),y=now.getFullYear(),mo=p2(now.getMonth()+1),d=now.getDate();
   const hourly={time:[],temperature_2m:[],precipitation_probability:[],precipitation:[],weather_code:[],pressure_msl:[],wind_speed_10m:[],wind_direction_10m:[],wind_gusts_10m:[],is_day:[],visibility:[]};
-  for(let i=0;i<120;i++){const dt=new Date(Date.UTC(y,now.getMonth(),d-1,i)),h=dt.getUTCHours();
+  for(let i=0;i<264;i++){const dt=new Date(Date.UTC(y,now.getMonth(),d-1,i)),h=dt.getUTCHours();
     hourly.time.push(dt.toISOString().slice(0,13)+':00');hourly.temperature_2m.push(14+6*Math.sin((h-9)/24*6.283)+i*.03);
     hourly.precipitation_probability.push(Math.max(0,Math.round(50*Math.sin(i/9))));hourly.precipitation.push(Math.max(0,Math.sin(i/9)*.8));
     hourly.weather_code.push([0,1,2,3,61,0,2][Math.floor(i/7)%7]);hourly.pressure_msl.push(1014-i*.08);
@@ -472,12 +472,12 @@ function demo(){ // synthetic data for layout checks (?demo)
   const cur=new Date().toISOString().slice(0,13);
   return {timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
     current:{time:cur+':00',temperature_2m:17.6,apparent_temperature:16.2,relative_humidity_2m:62,dew_point_2m:10.1,is_day:1,precipitation:0,weather_code:2,pressure_msl:1013.6,wind_speed_10m:12.4,wind_direction_10m:240,wind_gusts_10m:18.7,visibility:1800},
-    marineDaily:{time:[0,1,2,3,4,5,6,7,8].map(k=>new Date(Date.UTC(y,now.getMonth(),d-1+k)).toISOString().slice(0,10)),wave_height_max:[.8,1.1,1.6,2.6,3.0,1.8,1.0,.9,1.2],wave_period_max:[5,5,6,8,9,7,5,5,6],wave_direction_dominant:[250,240,225,215,220,235,250,255,245]},
+    marineDaily:{time:[0,1,2,3,4,5,6,7,8,9,10,11].map(k=>new Date(Date.UTC(y,now.getMonth(),d-1+k)).toISOString().slice(0,10)),wave_height_max:[.8,1.1,1.6,2.6,3.0,1.8,1.0,.9,1.2,1.5,2.1,1.4],wave_period_max:[5,5,6,8,9,7,5,5,6,6,7,6],wave_direction_dominant:[250,240,225,215,220,235,250,255,245,240,230,235]},
     marineUnits:{ocean_current_velocity:'km/h'},
     marine:{time:hourly.time,ocean_current_velocity:hourly.time.map((_,i)=>.3+2.4*Math.abs(Math.sin(2*Math.PI*i/12.42))),ocean_current_direction:hourly.time.map((_,i)=>Math.sin(2*Math.PI*i/12.42)>0?40:220),wave_height:hourly.time.map((_,i)=>1.1+.7*Math.sin(i/10)),wave_period:hourly.time.map((_,i)=>5+Math.sin(i/12)*1.5),sea_level_height_msl:hourly.time.map((_,i)=>1.4*Math.sin(2*Math.PI*i/12.42)+.2*Math.sin(i/170)),wave_direction:hourly.time.map((_,i)=>235+i),sea_surface_temperature:hourly.time.map(()=>17.2)},
     hourly,daily:(()=>{const o={time:[],weather_code:[],sunrise:[],sunset:[],temperature_2m_max:[],temperature_2m_min:[],uv_index_max:[],precipitation_sum:[],precipitation_probability_max:[],wind_speed_10m_max:[],wind_gusts_10m_max:[],wind_direction_10m_dominant:[]};
-      for(let k=0;k<9;k++){const ds=new Date(Date.UTC(y,now.getMonth(),d-1+k)).toISOString().slice(0,10);o.time.push(ds);o.weather_code.push([2,0,3,61,63,1,0,2,3][k]);o.sunrise.push(ds+'T07:12');o.sunset.push(ds+'T17:48');
-        o.temperature_2m_max.push(19+Math.sin(k)*3);o.temperature_2m_min.push(11+Math.sin(k)*2);o.uv_index_max.push(3.5);o.precipitation_sum.push([0,0,.4,6.2,9.1,.8,0,0,.3][k]);o.precipitation_probability_max.push([5,10,35,80,90,40,5,10,30][k]);
+      for(let k=0;k<12;k++){const ds=new Date(Date.UTC(y,now.getMonth(),d-1+k)).toISOString().slice(0,10);o.time.push(ds);o.weather_code.push([2,0,3,61,63,1,0,2,3,1,2,61][k]);o.sunrise.push(ds+'T07:12');o.sunset.push(ds+'T17:48');
+        o.temperature_2m_max.push(19+Math.sin(k)*3);o.temperature_2m_min.push(11+Math.sin(k)*2);o.uv_index_max.push(3.5);o.precipitation_sum.push([0,0,.4,6.2,9.1,.8,0,0,.3,0,1.2,4][k]);o.precipitation_probability_max.push([5,10,35,80,90,40,5,10,30,10,45,70][k]);
         o.wind_speed_10m_max.push(10+k*2%12);o.wind_gusts_10m_max.push(16+k*2%14);o.wind_direction_10m_dominant.push(200+k*20)}return o})()};
 }
 
@@ -647,7 +647,7 @@ function render(){
   const items=[];
   if(P.step===0){
     const dd=D.daily,md=D.marineDaily,mi=md?Object.fromEntries(md.time.map((t,j)=>[t,j])):null;
-    for(let k=0;k<7;k++){const i=di+k;if(i>=dd.time.length)break;const t=dd.time[i],j=mi?mi[t]:null;
+    for(let k=0;k<10;k++){const i=di+k;if(i>=dd.time.length)break;const t=dd.time[i],j=mi?mi[t]:null;
       items.push({t,k,i,vis:dvis(t),visMax:dvmax(t),code:dd.weather_code[i],day:1,hi:dd.temperature_2m_max[i],lo:dd.temperature_2m_min[i],dir:dd.wind_direction_10m_dominant[i],
         ws:dd.wind_speed_10m_max[i],wg:dd.wind_gusts_10m_max[i],wave:j==null?null:md.wave_height_max[j],wper:j==null?null:md.wave_period_max[j],wdir:j==null||!md.wave_direction_dominant?null:md.wave_direction_dominant[j],pp:dd.precipitation_probability_max[i]||0,mm:dd.precipitation_sum[i]||0})}
   }else{
@@ -721,7 +721,7 @@ function render(){
     if(daily){
       const byDay={};evs.forEach(e=>{const d=e.t.slice(0,10);(byDay[d]=byDay[d]||[]).push(e)});
       items.forEach((o,k)=>{const arr=byDay[o.t.slice(0,10)];if(!arr||!arr.length)return;const parts=[];
-        if(CUR.src==='NOAA'){const fl=arr.filter(e=>e.ln==='f').sort((a,b)=>b.v-a.v)[0],eb=arr.filter(e=>e.ln==='e').sort((a,b)=>a.v-b.v)[0];if(fl)parts.push([fl,'f']);if(eb)parts.push([eb,'e'])}
+        if(CUR.src==='NOAA'){const fl=arr.filter(e=>e.ln==='f').sort((a,b)=>b.v-a.v)[0],eb=arr.filter(e=>e.ln==='e').sort((a,b)=>a.v-b.v)[0];if(fl)parts.push([fl,'f']);if(eb)parts.push([eb,'e']);if(n>8&&parts.length>1)parts.splice(0,2,Math.abs(parts[0][0].v)>=Math.abs(parts[1][0].v)?parts[0]:parts[1])}
         else parts.push([arr.sort((a,b)=>b.v-a.v)[0],'m']);
         lab+=`<div class="cp" style="left:${((k+.5)/n*100).toFixed(2)}%;top:${TB+22}px">${parts.map(([e,ln])=>`<div>${curArrow(e.dir,cols[ln])}<span style="color:${cols[ln]}">${CW(Math.abs(e.v))}</span></div>`).join('')}</div>`});
     }else{
@@ -836,7 +836,7 @@ async function noaaTide(loc,w){
   if(st.none)return null;
   const ds=w.current.time.slice(0,10),d0=Date.UTC(+ds.slice(0,4),+ds.slice(5,7)-1,+ds.slice(8,10));
   const f=o=>new Date(d0+o*86400000).toISOString().slice(0,10).replace(/-/g,'');
-  const j=await getJSON('https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&application=weather_tablet&datum=MLLW&station='+st.id+'&time_zone=lst_ldt&units=metric&interval=hilo&format=json&begin_date='+f(-1)+'&end_date='+f(8),15000);
+  const j=await getJSON('https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&application=weather_tablet&datum=MLLW&station='+st.id+'&time_zone=lst_ldt&units=metric&interval=hilo&format=json&begin_date='+f(-1)+'&end_date='+f(10),15000);
   if(!j.predictions||j.predictions.length<2)return null;
   return{src:'NOAA',name:st.name,d:st.d,ext:j.predictions.map(p=>{const t=p.t.replace(' ','T');return{t,ms:lm(t),v:+p.v,type:p.type}})};
 }
@@ -871,7 +871,7 @@ async function noaaCurrent(loc,w){
   if(st.none)return null;
   const ds=w.current.time.slice(0,10),d0=Date.UTC(+ds.slice(0,4),+ds.slice(5,7)-1,+ds.slice(8,10));
   const f=o=>new Date(d0+o*86400000).toISOString().slice(0,10).replace(/-/g,'');
-  const j=await getJSON('https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=currents_predictions&interval=MAX_SLACK&station='+st.id+(st.bin!=null?'&bin='+st.bin:'')+'&units=english&time_zone=lst_ldt&format=json&begin_date='+f(-1)+'&end_date='+f(8),15000);
+  const j=await getJSON('https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=currents_predictions&interval=MAX_SLACK&station='+st.id+(st.bin!=null?'&bin='+st.bin:'')+'&units=english&time_zone=lst_ldt&format=json&begin_date='+f(-1)+'&end_date='+f(10),15000);
   const cp=j.current_predictions&&(j.current_predictions.cp||j.current_predictions);
   if(!Array.isArray(cp)||cp.length<3)return null;
   let fdir=null,edir=null;
