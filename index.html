@@ -138,7 +138,16 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .fmap img{position:absolute;width:256px;height:256px;max-width:none;pointer-events:none}
 .fav::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(11,17,28,.82),rgba(11,17,28,.15));pointer-events:none}
 .fin{position:absolute;inset:0;z-index:2;padding:11px 14px;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}
-.fname{font-size:17px;font-weight:700;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.fname{font-size:17px;font-weight:700;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.fbot{display:flex;align-items:flex-end;justify-content:space-between;gap:6px}
+.fdet{text-align:right;text-shadow:0 1px 4px rgba(0,0,0,.7);padding-bottom:3px}
+.fhl{font-size:15px;font-weight:700;white-space:nowrap}
+.fhl span{font-size:11px;margin-right:1px}
+.fwind{display:flex;align-items:center;justify-content:flex-end;gap:4px;font-size:13px;font-weight:600;color:#dbe6f3;margin-top:3px;white-space:nowrap}
+.fwind b{font-size:16px}
+.fav{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.fav.drag{z-index:6;box-shadow:0 12px 32px rgba(0,0,0,.65);transition:none;opacity:.96}
+.favlist.dragging{overflow:hidden}
 .fwx{display:flex;align-items:center;gap:6px}
 .fwx b{font-size:34px;font-weight:600;letter-spacing:-.02em;text-shadow:0 1px 6px rgba(0,0,0,.6)}
 .fwx svg{width:38px;height:38px}
@@ -902,12 +911,14 @@ function tileBg(lat,lon,w,h,z){           // a piece of the OpenStreetMap, centr
     o+=`<img alt="" draggable="false" onerror="this.style.display='none'" src="https://tile.openstreetmap.org/${z}/${x}/${y}.png" style="left:${((tx+dx)*256-px+w/2).toFixed(1)}px;top:${((ty+dy)*256-py+h/2).toFixed(1)}px">`}
   return o;
 }
+const wcol=v=>v<6?'#4fd1c5':v<12?'#7bd56f':v<17?'#f6d04d':v<22?'#f6a23d':v<28?'#f26b4f':'#e0457b';
+const favArrow=(dir,col)=>dir==null?'':`<svg width="18" height="18" viewBox="-10 -10 20 20"><circle r="9.3" fill="#10243a" stroke="${col}" stroke-width="1.3"/><polygon points="0,7 -5.5,-7 0,-3 5.5,-7" fill="${col}" transform="rotate(${dir+180})"/></svg>`;
 function renderFavs(){
   const el=$('favlist');
   if(!FAVS.length){el.innerHTML='<div class="favempty">No favorites yet.<br>Tap the ☆ by the place name, or in the map picker, to save a location here.</div>';return}
   el.innerHTML=FAVS.map((f,i)=>{const w=FW[fkey(f.lat,f.lon)],act=LOC&&near(f,LOC);
     return `<div class="fav${act?' act':''}" data-i="${i}"><div class="fmap">${tileBg(f.lat,f.lon,244,104,10)}</div>
-      <div class="fin"><div class="fname">${esc(f.name)}</div><div class="fwx">${w?`<b>${T(w.t)}°</b>${icon(w.code,w.day)}`:''}</div></div>
+      <div class="fin"><div class="fname">${esc(f.name)}</div><div class="fbot"><div class="fwx">${w?`<b>${T(w.t)}°</b>${icon(w.code,w.day)}`:''}</div>${w&&w.ws!=null?`<div class="fdet"><div class="fhl"><span style="color:#ffc93c">▲</span>${w.hi!=null?T(w.hi)+'°':'–'} <span style="color:#5cb8ff">▼</span>${w.lo!=null?T(w.lo)+'°':'–'}</div><div class="fwind">${favArrow(w.wd,wcol(w.ws))}<b style="color:${wcol(w.ws)}">${W(w.ws)}</b> ${P.w} ${w.wd!=null?card(w.wd):''}</div></div>`:''}</div></div>
       <button class="fstar" data-star="${i}" aria-label="Remove favorite">${starSvg(true,24)}</button></div>`}).join('');
 }
 function updateStars(){
@@ -922,11 +933,11 @@ function toggleFav(l,name){
 }
 async function loadFavWx(){
   if(!FAVS.length)return;
-  if(qs.has('demo')){FAVS.forEach((f,k)=>FW[fkey(f.lat,f.lon)]={t:8+k*3,code:[0,2,61,3][k%4],day:1});renderFavs();return}
+  if(qs.has('demo')){FAVS.forEach((f,k)=>FW[fkey(f.lat,f.lon)]={t:8+k*3,hi:11+k*3,lo:5+k*3,ws:6+k*5,wd:(k*70+200)%360,code:[0,2,61,3][k%4],day:1});renderFavs();return}
   try{
-    const u='https://api.open-meteo.com/v1/forecast?latitude='+FAVS.map(f=>f.lat).join(',')+'&longitude='+FAVS.map(f=>f.lon).join(',')+'&current=temperature_2m,weather_code,is_day&timezone=auto';
+    const u='https://api.open-meteo.com/v1/forecast?latitude='+FAVS.map(f=>f.lat).join(',')+'&longitude='+FAVS.map(f=>f.lon).join(',')+'&current=temperature_2m,weather_code,is_day,wind_speed_10m,wind_direction_10m&daily=temperature_2m_max,temperature_2m_min&wind_speed_unit=kn&forecast_days=1&timezone=auto';
     let j=await getJSON(u,15000);if(!Array.isArray(j))j=[j];
-    j.forEach((r,k)=>{if(r&&r.current&&FAVS[k])FW[fkey(FAVS[k].lat,FAVS[k].lon)]={t:r.current.temperature_2m,code:r.current.weather_code,day:r.current.is_day}});
+    j.forEach((r,k)=>{if(r&&r.current&&FAVS[k])FW[fkey(FAVS[k].lat,FAVS[k].lon)]={t:r.current.temperature_2m,code:r.current.weather_code,day:r.current.is_day,ws:r.current.wind_speed_10m,wd:r.current.wind_direction_10m,hi:r.daily&&r.daily.temperature_2m_max?r.daily.temperature_2m_max[0]:null,lo:r.daily&&r.daily.temperature_2m_min?r.daily.temperature_2m_min[0]:null}});
     renderFavs();
   }catch(e){}
 }
@@ -1036,15 +1047,61 @@ async function keepAwake(){try{if('wakeLock' in navigator&&document.visibilitySt
 document.addEventListener('visibilitychange',keepAwake);keepAwake();
 addEventListener('pointerdown',keepAwake,{once:true});
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+/* ---- drag to reorder favorites (press & hold, then drag up/down) ---- */
+(function(){
+  const L=$('favlist');let t=null,d=null,sx=0,sy=0,block=false;
+  const sc=()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sc'))||1;
+  L.addEventListener('pointerdown',e=>{
+    if(e.button>0||e.target.closest('[data-star]'))return;
+    const c=e.target.closest('.fav');if(!c)return;sx=e.clientX;sy=e.clientY;
+    clearTimeout(t);t=setTimeout(()=>{t=null;start(c,e.clientY,e.pointerId)},320);
+  });
+  function start(c,y,id){
+    const r=c.getBoundingClientRect();d={c,grab:y-r.top,y,id};c.classList.add('drag');L.classList.add('dragging');
+    try{L.setPointerCapture(id)}catch(_){}
+    if(navigator.vibrate)try{navigator.vibrate(15)}catch(_){}
+    place();
+  }
+  function place(){
+    const {c}=d;c.style.transform='none';
+    // swap with neighbours as the card crosses their middles
+    const cy=d.y-d.grab+c.offsetHeight*sc()/2;
+    let nx=c.nextElementSibling,pv=c.previousElementSibling;
+    while(nx&&nx.classList.contains('fav')){const r=nx.getBoundingClientRect();if(cy>r.top+r.height/2){L.insertBefore(c,nx.nextSibling);nx=c.nextElementSibling}else break}
+    while(pv&&pv.classList.contains('fav')){const r=pv.getBoundingClientRect();if(cy<r.top+r.height/2){L.insertBefore(c,pv);pv=c.previousElementSibling}else break}
+    const nat=c.getBoundingClientRect().top;
+    c.style.transform=`translateY(${((d.y-d.grab)-nat)/sc()}px) scale(1.02)`;
+  }
+  L.addEventListener('pointermove',e=>{
+    if(t){if(Math.hypot(e.clientX-sx,e.clientY-sy)>10){clearTimeout(t);t=null}return}
+    if(!d)return;e.preventDefault();d.y=e.clientY;
+    const lr=L.getBoundingClientRect();
+    if(e.clientY<lr.top+40)L.scrollTop-=8;else if(e.clientY>lr.bottom-40)L.scrollTop+=8;
+    place();
+  });
+  L.addEventListener('touchmove',e=>{if(d)e.preventDefault()},{passive:false});
+  function end(){
+    clearTimeout(t);t=null;if(!d)return;
+    const c=d.c;c.classList.remove('drag');L.classList.remove('dragging');c.style.transform='';
+    const order=[...L.querySelectorAll('.fav')].map(x=>+x.dataset.i);d=null;
+    if(order.some((v,i)=>v!==i)){FAVS=order.map(i=>FAVS[i]);saveFavs()}
+    block=true;setTimeout(()=>block=false,60);renderFavs();
+  }
+  L.addEventListener('pointerup',end);L.addEventListener('pointercancel',end);
+  L.addEventListener('click',e=>{if(block){e.stopImmediatePropagation();e.preventDefault()}},true);
+  L.addEventListener('contextmenu',e=>e.preventDefault());
+})();
+
 load(false);
 setInterval(()=>load(false),10*60*1000);
 setInterval(clock,20000);
 })();
 
+
 /* ---- Help: highlight clickable features ---- */
 (function(){
   const H=document.getElementById('help');
-  const items=[['#place','Place name – choose a location on the map'],['#hstar','Star – add / remove Favorite'],['#temp','Temperature – °C / °F'],['#twind','Wind – kts / km/h / mph / m/s'],['#tvis','Visibility – km / nm'],['#twave','Waves – m / ft'],['#ttile','Tides – tap title for m / ft'],['#stepb','View – Hourly / 3-Hours / 6-Hours / Daily'],['@hrs','Time header – 12h / 24h clock'],['.fav','Favorites – tap to switch, ★ removes'],['#fs','Full screen']];
+  const items=[['#place','Place name – choose a location on the map'],['#hstar','Star – add / remove Favorite'],['#temp','Temperature – °C / °F'],['#twind','Wind – kts / km/h / mph / m/s'],['#tvis','Visibility – km / nm'],['#twave','Waves – m / ft'],['#ttile','Tides – tap title for m / ft'],['#stepb','View – Hourly / 3-Hours / 6-Hours / Daily'],['@hrs','Time header – 12h / 24h clock'],['.fav','Favorites – tap to switch, hold & drag to reorder, ★ removes'],['#fs','Full screen']];
   function open(){
     let h='',l='',n=0;
     items.forEach(([q,t])=>{let r;if(q==='@hrs'){const cs=[...document.querySelectorAll('#rows .row.hd>*:not(b)')];if(!cs.length)return;const rs=cs.map(c=>c.getBoundingClientRect());r={left:Math.min(...rs.map(x=>x.left)),top:Math.min(...rs.map(x=>x.top)),width:Math.max(...rs.map(x=>x.right))-Math.min(...rs.map(x=>x.left)),height:Math.max(...rs.map(x=>x.height))}}else{const e=document.querySelector(q);if(!e)return;r=e.getBoundingClientRect()}if(!r.width||!r.height)return;n++;
