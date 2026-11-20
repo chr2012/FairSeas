@@ -147,7 +147,8 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .fdet{text-align:right;text-shadow:0 1px 4px rgba(0,0,0,.7);padding-bottom:3px}
 .fhl{font-size:15px;font-weight:700;white-space:nowrap;line-height:1.15;text-shadow:0 1px 4px rgba(0,0,0,.7);margin:0 2px 0 -2px}
 .fhl span{font-size:11px;margin-right:1px}
-.fwind{display:flex;align-items:center;gap:5px;padding-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.fr{display:flex;flex-direction:column;align-items:flex-end;padding-bottom:6px}.fold{font-size:11px;font-weight:700;color:#ffb347;text-shadow:0 1px 4px rgba(0,0,0,.8);margin-top:1px}
+.fwind{display:flex;align-items:center;gap:5px;padding-bottom:0;text-shadow:0 1px 4px rgba(0,0,0,.7)}
 .fwind b{font-size:20px}
 .fwind svg{width:24px;height:24px}
 .fav{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -479,6 +480,14 @@ async function locate(){
 }
 
 /* ---------- data ---------- */
+const retry=async(f,n=1)=>{try{return await f()}catch(e){if(!n)throw e;await new Promise(r=>setTimeout(r,1500));return retry(f,n-1)}};
+/* offline cache of the last good forecast for the 4 most recent places */
+const MC_KEY='wx-main';
+const mcRead=()=>{try{return JSON.parse(localStorage.getItem(MC_KEY)||'{}')}catch(e){return {}}};
+const mcWrite=(l,w)=>{try{const m=mcRead();m[fkey(l.lat,l.lon)]={ts:Date.now(),LOC:{lat:l.lat,lon:l.lon,name:l.name},D:w};
+  const o={};Object.keys(m).sort((a,b)=>m[b].ts-m[a].ts).slice(0,4).forEach(k=>o[k]=m[k]);localStorage.setItem(MC_KEY,JSON.stringify(o))}catch(e){try{localStorage.removeItem(MC_KEY)}catch(_){}}};
+const mcGet=l=>{const m=mcRead(),v=Object.values(m);if(!l)return v.sort((a,b)=>b.ts-a.ts)[0]||null;
+  return m[fkey(l.lat,l.lon)]||v.filter(x=>Math.abs(x.LOC.lat-l.lat)<.3&&Math.abs(x.LOC.lon-l.lon)<.3).sort((a,b)=>b.ts-a.ts)[0]||null};
 async function fetchWx(l){
   if(qs.has('demo'))return demo();
   const u='https://api.open-meteo.com/v1/forecast?latitude='+l.lat+'&longitude='+l.lon+
@@ -488,8 +497,9 @@ async function fetchWx(l){
   '&wind_speed_unit=kn&timezone=auto&past_days=1&forecast_days=16';
   const mu='https://marine-api.open-meteo.com/v1/marine?latitude='+l.lat+'&longitude='+l.lon+
   '&hourly=wave_height,wave_period,wave_direction,sea_surface_temperature,sea_level_height_msl,ocean_current_velocity,ocean_current_direction&daily=wave_height_max,wave_period_max,wave_direction_dominant&timezone=auto&past_days=1&forecast_days=16';
-  const [w,m]=await Promise.all([getJSON(u,15000),getJSON(mu,15000).catch(()=>null)]);
-  w.marine=m&&m.hourly?m.hourly:null;w.marineDaily=m&&m.daily?m.daily:null;w.marineUnits=m&&m.hourly_units?m.hourly_units:null;   // null = no marine data for this spot (e.g. inland)
+  const [w,m]=await Promise.all([retry(()=>getJSON(u,15000)),retry(()=>getJSON(mu,15000)).catch(()=>null)]);
+  w.marine=m&&m.hourly?m.hourly:null;w.marineDaily=m&&m.daily?m.daily:null;w.marineUnits=m&&m.hourly_units?m.hourly_units:null;
+  if(!w.marine){const c=mcGet(l);if(c&&c.D&&c.D.marine&&Date.now()-c.ts<48*3600000){w.marine=c.D.marine;w.marineDaily=c.D.marineDaily;w.marineUnits=c.D.marineUnits}}   // marine call failed: reuse the last good sea data   // null = no marine data for this spot (e.g. inland)
   return w;
 }
 function demo(){ // synthetic data for layout checks (?demo)
@@ -602,7 +612,7 @@ function dial(deg){ // arrow shows where the wind blows toward
 }
 const uvLvl=u=>u<3?'Low':u<6?'Moderate':u<8?'High':u<11?'Very high':'Extreme';
 
-let HK='',UPDT=null;
+let HK='',UPDT=null,OFFL=false;
 function render(){
   if(!D)return;
   const c=D.current,h=D.hourly,ci=h.time.indexOf(c.time.slice(0,13)+':00');
@@ -618,7 +628,7 @@ function render(){
   $('hico').innerHTML=icon(c.weather_code,day);
   $('cond').textContent=WX[c.weather_code]||'';
   $('hpr').innerHTML=`<span style="color:${pcol}">${Math.round(c.pressure_msl)} hPa ${tr}</span> <small>${tt}</small>`;
-  $('hsub').innerHTML=`<span>Feels ${T(c.apparent_temperature)}°</span><span><i style="font-style:normal;color:#ffd23c;font-size:14px">▲</i> ${T(D.daily.temperature_2m_max[di])}°</span><span><i style="font-style:normal;color:#7cc4ff;font-size:14px">▼</i> ${T(D.daily.temperature_2m_min[di])}°</span><span class="upd" id="upd">${UPDT?'Updated '+clk(UPDT):''}</span>`;
+  $('hsub').innerHTML=`<span>Feels ${T(c.apparent_temperature)}°</span><span><i style="font-style:normal;color:#ffd23c;font-size:14px">▲</i> ${T(D.daily.temperature_2m_max[di])}°</span><span><i style="font-style:normal;color:#7cc4ff;font-size:14px">▼</i> ${T(D.daily.temperature_2m_min[di])}°</span><span class="upd" id="upd">${UPDT?(OFFL?'<b style="color:#ffb347">Offline · data from '+clk(UPDT)+'</b>':'Updated '+clk(UPDT)):''}</span>`;
   clock();updateStars();renderFavs();
 
   // tiles
@@ -939,7 +949,11 @@ async function loadCurrent(){
 /* ---------- favorites ---------- */
 let FAVS=[];try{FAVS=JSON.parse(localStorage.getItem('wx-favs')||'[]')||[]}catch(e){}
 const FW={};
-const saveFavs=()=>{try{localStorage.setItem('wx-favs',JSON.stringify(FAVS))}catch(e){}};
+const FWC_KEY='wx-fwc';
+try{Object.assign(FW,JSON.parse(localStorage.getItem(FWC_KEY)||'{}'))}catch(e){}
+const saveFW=()=>{try{const o={};FAVS.forEach(f=>{const k=fkey(f.lat,f.lon);if(FW[k])o[k]=FW[k]});localStorage.setItem(FWC_KEY,JSON.stringify(o))}catch(e){}};
+const ageTxt=ms=>{const m=Math.round(ms/60000);return m<60?m+'m ago':m<2880?Math.round(m/60)+'h ago':Math.round(m/1440)+'d ago'};
+const saveFavs=()=>{try{localStorage.setItem('wx-favs',JSON.stringify(FAVS))}catch(e){}saveFW()};
 const near=(a,b)=>Math.abs(a.lat-b.lat)<0.02&&Math.abs(a.lon-b.lon)<0.02;
 const favIdx=l=>l?FAVS.findIndex(f=>near(f,l)):-1;
 const fkey=(a,b)=>a.toFixed(3)+','+b.toFixed(3);
@@ -960,7 +974,7 @@ function renderFavs(){
   if(!FAVS.length){el.innerHTML='<div class="favempty">No favorites yet.<br>Tap the ☆ by the place name, or in the map picker, to save a location here.</div>';return}
   el.innerHTML=FAVS.map((f,i)=>{const w=FW[fkey(f.lat,f.lon)],act=LOC&&near(f,LOC);
     return `<div class="fav${act?' act':''}" data-i="${i}"><div class="fmap">${tileBg(f.lat,f.lon,244,104,10)}</div>
-      <div class="fin"><div class="fname">${esc(cleanName(f.name))}</div><div class="fbot"><div class="fwx">${w?`<b>${T(w.t)}°</b>${w.hi!=null?`<div class="fhl"><div><span style="color:#ffc93c">▲</span>${T(w.hi)}°</div><div><span style="color:#5cb8ff">▼</span>${T(w.lo)}°</div></div>`:''}${icon(w.code,w.day)}`:''}</div>${w&&w.ws!=null?`<div class="fwind">${favArrow(w.wd,wcol(w.ws))}<b style="color:${wcol(w.ws)}">${W(w.ws)}</b></div>`:''}</div></div>
+      <div class="fin"><div class="fname">${esc(cleanName(f.name))}</div><div class="fbot"><div class="fwx">${w?`<b>${T(w.t)}°</b>${w.hi!=null?`<div class="fhl"><div><span style="color:#ffc93c">▲</span>${T(w.hi)}°</div><div><span style="color:#5cb8ff">▼</span>${T(w.lo)}°</div></div>`:''}${icon(w.code,w.day)}`:''}</div><div class="fr">${w&&w.ws!=null?`<div class="fwind">${favArrow(w.wd,wcol(w.ws))}<b style="color:${wcol(w.ws)}">${W(w.ws)}</b></div>`:''}${w&&w.ts&&Date.now()-w.ts>45*60000?`<div class="fold">${ageTxt(Date.now()-w.ts)}</div>`:''}</div></div></div>
       <button class="fstar" data-star="${i}" aria-label="Remove favorite">${starSvg(true,24)}</button></div>`}).join('');
 }
 function updateStars(){
@@ -973,15 +987,25 @@ function toggleFav(l,name){
   else FAVS.push({lat:+l.lat.toFixed(4),lon:+l.lon.toFixed(4),name:name||l.name||`${l.lat.toFixed(2)}°, ${l.lon.toFixed(2)}°`});
   saveFavs();renderFavs();updateStars();loadFavWx();
 }
+let fwFail=0,fwTimer=null;
 async function loadFavWx(){
   if(!FAVS.length)return;
-  if(qs.has('demo')){FAVS.forEach((f,k)=>FW[fkey(f.lat,f.lon)]={t:8+k*3,hi:11+k*3,lo:5+k*3,ws:6+k*5,wd:(k*70+200)%360,code:[0,2,61,3][k%4],day:1});renderFavs();return}
-  try{
-    const u='https://api.open-meteo.com/v1/forecast?latitude='+FAVS.map(f=>f.lat).join(',')+'&longitude='+FAVS.map(f=>f.lon).join(',')+'&current=temperature_2m,weather_code,is_day,wind_speed_10m,wind_direction_10m&daily=temperature_2m_max,temperature_2m_min&wind_speed_unit=kn&forecast_days=1&timezone=auto';
-    let j=await getJSON(u,15000);if(!Array.isArray(j))j=[j];
-    j.forEach((r,k)=>{if(r&&r.current&&FAVS[k])FW[fkey(FAVS[k].lat,FAVS[k].lon)]={t:r.current.temperature_2m,code:r.current.weather_code,day:r.current.is_day,ws:r.current.wind_speed_10m,wd:r.current.wind_direction_10m,hi:r.daily&&r.daily.temperature_2m_max?r.daily.temperature_2m_max[0]:null,lo:r.daily&&r.daily.temperature_2m_min?r.daily.temperature_2m_min[0]:null}});
-    renderFavs();
+  if(qs.has('demo')){FAVS.forEach((f,k)=>FW[fkey(f.lat,f.lon)]={t:8+k*3,hi:11+k*3,lo:5+k*3,ws:6+k*5,wd:(k*70+200)%360,code:[0,2,61,3][k%4],day:1,ts:Date.now()-(k===1&&qs.has('stale')?3*3600000:0)});renderFavs();return}
+  const base='&current=temperature_2m,weather_code,is_day,wind_speed_10m,wind_direction_10m&daily=temperature_2m_max,temperature_2m_min&wind_speed_unit=kn&forecast_days=1&timezone=auto';
+  const mk=r=>r&&r.current&&r.current.temperature_2m!=null?{t:r.current.temperature_2m,code:r.current.weather_code,day:r.current.is_day,ws:r.current.wind_speed_10m,wd:r.current.wind_direction_10m,hi:r.daily&&r.daily.temperature_2m_max?r.daily.temperature_2m_max[0]:null,lo:r.daily&&r.daily.temperature_2m_min?r.daily.temperature_2m_min[0]:null,ts:Date.now()}:null;
+  const list=FAVS.slice();let ok=0;
+  try{ // one batched request
+    let j=await getJSON('https://api.open-meteo.com/v1/forecast?latitude='+list.map(f=>f.lat).join(',')+'&longitude='+list.map(f=>f.lon).join(',')+base,15000);if(!Array.isArray(j))j=[j];
+    j.forEach((r,k)=>{const e=mk(r);if(e&&list[k]){FW[fkey(list[k].lat,list[k].lon)]=e;ok++}});
   }catch(e){}
+  if(ok<list.length){ // batch failed or partial: try each missing one on its own
+    await Promise.all(list.map(async f=>{const k=fkey(f.lat,f.lon);if(FW[k]&&Date.now()-FW[k].ts<60000)return;
+      try{let r=await getJSON('https://api.open-meteo.com/v1/forecast?latitude='+f.lat+'&longitude='+f.lon+base,12000);if(Array.isArray(r))r=r[0];const e=mk(r);if(e){FW[k]=e;ok++}}catch(e){}}));
+  }
+  saveFW();renderFavs();
+  // outage: keep showing the cached values and retry sooner (30s, 1m, 2m ... max 5m)
+  clearTimeout(fwTimer);
+  if(ok<list.length){fwFail++;fwTimer=setTimeout(loadFavWx,Math.min(300000,30000*2**(fwFail-1)))}else fwFail=0;
 }
 $('favlist').onclick=e=>{
   const st=e.target.closest('[data-star]');
@@ -1060,18 +1084,28 @@ $('mapgps').onclick=()=>{PICK=null;try{localStorage.removeItem('wx-pick')}catch(
 
 /* ---------- main ---------- */
 function show(html){$('msg').innerHTML=html;$('msg').classList.add('on')}
+let LRT=null;const retryLater=()=>{clearTimeout(LRT);LRT=setTimeout(()=>load(false),60000)};
 async function load(force){
   if(!D)show('Locating…');
   try{
     LOC=await locate();
     D=await fetchWx(LOC);
+    OFFL=false;clearTimeout(LRT);if(!qs.has('demo'))mcWrite(LOC,D);
     $('msg').classList.remove('on');
     UPDT=new Date();
     const tkey=fkey(LOC.lat,LOC.lon);if(tkey!==TDK){TD=null;TDK=tkey}
     if(tkey!==CURK){CUR=null;CURK=tkey}
     render();loadFavWx();loadTide();loadCurrent();
   }catch(e){
-    if(D){$('upd').textContent='Update failed — showing last data';return}
+    if(D){$('upd').textContent='Update failed — showing last data';retryLater();loadFavWx();return}
+    const cc=mcGet(typeof LOC==='undefined'?null:LOC);      // outage with nothing on screen: fall back to the last good data
+    if(cc&&cc.D){
+      LOC=cc.LOC;D=cc.D;UPDT=new Date(cc.ts);OFFL=true;$('msg').classList.remove('on');
+      const tkey=fkey(LOC.lat,LOC.lon);if(tkey!==TDK){TD=null;TDK=tkey}if(tkey!==CURK){CUR=null;CURK=tkey}
+      try{render()}catch(err){}
+      loadFavWx();try{loadTide();loadCurrent()}catch(err){}
+      retryLater();return}
+    renderFavs();loadFavWx();retryLater();
     show(`Weather unavailable<p>${e&&e.message&&e.message.length<80?e.message:'Check the network connection.'} If location is blocked, open this page with <b>?lat=55.68&amp;lon=12.57&amp;name=Copenhagen</b> added to the address.</p><button id="retry">Try again</button>`);
     $('retry').onclick=()=>load(true);
   }
@@ -1135,6 +1169,7 @@ if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){navigator.
   L.addEventListener('contextmenu',e=>e.preventDefault());
 })();
 
+renderFavs();   // show cached favorites right away, even if the network is down
 load(false);
 setInterval(()=>load(false),10*60*1000);
 setInterval(clock,20000);
