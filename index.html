@@ -287,6 +287,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .cp div{display:flex;align-items:center;gap:3px}
 .cp span{font-size:13px;font-weight:700;background:rgba(15,25,40,.6);padding:0 2px;border-radius:4px}
 .tcol{display:flex;flex-direction:column;align-items:center;gap:3px}
+.plab{position:absolute;left:14px;top:44px;font-size:15px;font-weight:700;color:#cfe6fa;white-space:nowrap;pointer-events:none}
 .tcb{display:flex;align-items:center;gap:4px;white-space:nowrap}
 .tcb span{font-size:12.5px;font-weight:700;color:#bfe3ff}
 .tnl{position:absolute;font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap}
@@ -364,11 +365,12 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 const $=s=>document.getElementById(s);
 const KN={'kts':1,'km/h':1.852,'mph':1.15078,'m/s':0.514444};
 const WU=Object.keys(KN);
-const P={t:'C',w:'kts',step:1,wv:'m',vu:'km'};
+const P={t:'C',w:'kts',step:1,wv:'m',vu:'km',ru:'mm'};
 try{Object.assign(P,JSON.parse(localStorage.getItem('wx-prefs')||'{}'))}catch(e){}
 if(!KN[P.w])P.w='kts';
 if(P.wv!=='ft')P.wv='m';
 if(P.vu!=='nm')P.vu='km';
+if(P.ru!=='in')P.ru='mm';
 if(![0,1,3,6].includes(P.step))P.step=1;
 const savePrefs=()=>{try{localStorage.setItem('wx-prefs',JSON.stringify(Object.assign({},P,{step:P.step===-1?0:P.step})))}catch(e){}};
 const qs=new URLSearchParams(location.search);
@@ -555,6 +557,7 @@ function moonIllum(ms){
   const ang=Math.atan2(Math.cos(s.dec)*Math.sin(s.ra-m.ra),Math.sin(s.dec)*Math.cos(m.dec)-Math.cos(s.dec)*Math.sin(m.dec)*Math.cos(s.ra-m.ra));
   return{frac:(1+Math.cos(inc))/2,phase:0.5+0.5*inc*(ang<0?-1:1)/Math.PI};
 }
+const moonLbl=m=>{const p=m.phase,q=[[0,'New'],[.25,'First'],[.5,'Full'],[.75,'Third'],[1,'New']];for(const [x,n] of q)if(Math.abs(p-x)<=.034)return n;return (p<.5?'Waxing ':'Waning ')+Math.round(m.frac*100)+'%'};
 const phaseName=p=>p<.03||p>.97?'New moon':p<.22?'Waxing crescent':p<.28?'First quarter':p<.47?'Waxing gibbous':p<.53?'Full moon':p<.72?'Waning gibbous':p<.78?'Last quarter':'Waning crescent';
 function moonSvg(p,south,sz){
   const r=20,cx=24,cy=24,waning=p>0.5,pp=waning?1-p:p,k=Math.cos(2*Math.PI*pp);
@@ -647,7 +650,8 @@ function render(){
     return{v:sv,dir:mv('ocean_current_direction',i),sgn:0}};
   const curArrow=(dir,col,sz=20)=>dir==null?'':`<svg width="${sz}" height="${sz}" viewBox="-10 -10 20 20"><circle r="9.3" fill="#10243a" stroke="${col}" stroke-width="1.3"/><polygon points="0,7 -5.5,-7 0,-3 5.5,-7" fill="${col}" transform="rotate(${dir+180})"/></svg>`;
   const LU=u=>`<span class="lu">(${u})</span>`;
-  const WV=m=>(P.wv==='ft'?m*3.28084:m).toFixed(1),WVU=P.wv;
+  const WV=m=>P.wv==='ft'?String(Math.round(m*3.28084)):(Math.round(m*2)/2).toFixed(1),WVU=P.wv;
+  const RN=mm=>P.ru==='in'?(mm/25.4<0.05?'0':(mm/25.4).toFixed(1)):String(Math.round(mm));
   const wh=mv('wave_height',ci),wp=mv('wave_period',ci),wd=mv('wave_direction',ci),st=mv('sea_surface_temperature',ci);
   const lat=LOC.lat,lon=LOC.lon,off=D.utc_offset_seconds??(-new Date().getTimezoneOffset()*60),ds=c.time.slice(0,10);
   const t0=Date.UTC(+ds.slice(0,4),+ds.slice(5,7)-1,+ds.slice(8,10))-off*1000;
@@ -663,19 +667,20 @@ function render(){
   let tideTile;
   if(TD){const nx=TD.ext.filter(e=>e.ms>nowMs).slice(0,2),rising=nx[0]&&nx[0].type==='H',tstate=TD.ext.some(e=>Math.abs(e.ms-nowMs)<=2400000)?'slack':rising?'rising':'falling';
     const row=e=>`<div class="trow"><em style="color:${e.type==='H'?'#5cb8ff':'#ffb347'};font-size:13px;margin-right:2px">${e.type==='H'?'▲':'▼'}</em><span class="tv">${TU(e.v)}</span><em class="tt">${fmtMin(strMin(e.t))}</em></div>`;
-    tideTile=`<div class="tile" id="ttile"><div class="lab"><button class="ttl" id="ttides">Tides <span class="u">(${WVU})</span></button></div><div class="gfx al" style="top:14px;right:12px;width:66px"><div class="tcol">${curBadge}${tideSvg(nowMs)}</div></div><div class="sm" style="margin-bottom:2px">${nx.map(row).join('')}</div></div>`}
+    tideTile=`<div class="tile" id="ttile"><div class="lab"><button class="ttl" id="ttides">Tides <span class="u">(${WVU})</span></button></div><div class="gfx al" style="top:14px;right:12px;width:66px"><div class="tcol">${curBadge}${tideSvg(nowMs)}</div></div><div class="plab" style="color:${tstate==='rising'?'#5cb8ff':tstate==='falling'?'#ffb347':'#9fb3c8'}">${tstate==='rising'?'Rising':tstate==='falling'?'Falling':'Slack'}</div><div class="sm" style="margin-bottom:2px">${nx.map(row).join('')}</div></div>`}
   else tideTile=`<div class="tile"><div class="lab">Tides</div><div class="gfx">${waveSvg(null)}</div><div class="val" style="font-size:30px">–</div><div class="tsub">${TDL?'Loading…':'No tide data here'}</div></div>`;
   const vk=c.visibility==null?null:c.visibility/1000,spread=c.temperature_2m-c.dew_point_2m;
   const fogNow=isFog(c.weather_code,vk),fogRisk=!fogNow&&spread<=1.5&&c.wind_speed_10m<=8&&(vk==null||vk>=1);
   $('tiles').innerHTML=
    `<button class="tile" id="twind"><div class="lab">Wind <span class="u">(${P.w})</span></div>${dial(c.wind_direction_10m)}<div class="val">${W(c.wind_speed_10m)}</div><div class="tsub">Gust ${W(c.wind_gusts_10m)} · ${card(c.wind_direction_10m)}</div></button>`+
-   `<div class="tile"><div class="lab">Rain <span class="u">(mm)</span></div><div class="gfx" style="top:12px">${dropSvg(rp1,30,40)}</div><div class="val">${next24<0.05?'0':next24.toFixed(1)}<small>/ 24hr</small></div><div class="tsub">${rp1>=15?Math.round(rp1)+'% in 1 hr':Math.round(c.relative_humidity_2m)+'% humidity'}</div></div>`+
+   `<button class="tile" id="trn"><div class="lab">Rain <span class="u">(${P.ru})</span></div><div class="gfx" style="top:12px">${dropSvg(rp1,30,40)}</div><div class="val">${RN(next24)}<small>/ 24hr</small></div><div class="tsub">${rp1>=15?Math.round(rp1)+'% in 1 hr':Math.round(c.relative_humidity_2m)+'% humidity'}</div></button>`+
    `<button class="tile" id="tvis"><div class="lab">Visibility <span class="u">(${P.vu})</span></div><div class="gfx al">${visScaleSvg(vk)}</div><div class="val" style="color:${vk==null?'inherit':visCol(vk)}">${visTxt(vk)}</div><div class="tsub">${fogNow?'<span class="fogtag">FOG</span>':fogRisk?'<span style="color:#f6a23d">Fog risk · Δ'+(P.t==='F'?(spread*1.8):spread).toFixed(1)+'°</span>':vk==null?'No data':'<span style="color:'+visCol(vk)+'">'+visWord(vk)+'</span>'}</div></button>`+
    `<button class="tile" id="twave"><div class="lab">Waves <span class="u">(${WVU})</span></div><div class="gfx al" style="top:14px;right:12px;width:66px">${waveSvg(wh,wd)}</div><div class="val">${wh==null?'–':WV(wh)}</div><div class="tsub">${wh==null?'No marine data here':Math.round(wp)+'s · '+card(wd)+(st!=null?' · sea '+T(st)+'°':'')}</div></button>`+
    tideTile+
-   `<div class="tile"><div class="lab">Sun &amp; Moon</div><div class="gfx" style="top:5px;right:8px">${moonSvg(mi.phase,lat<0,52)}</div>
+   `<div class="tile"><div class="lab">Sun &amp; Moon</div><div class="gfx" style="top:5px;right:8px">${moonSvg(mi.phase,lat<0,52)}</div><div class="plab">${moonLbl(mi)}</div>
      <div class="sm" style="margin-bottom:2px"><div>${sunI}<em>↑</em>${fmtMin(strMin(D.daily.sunrise[di]))}<em>↓</em>${fmtMin(strMin(D.daily.sunset[di]))}</div><div>${moonI}<em>↑</em>${fmtMin(tm(mt.rise))}<em>↓</em>${fmtMin(tm(mt.set))}</div></div>
      </div>`;
+  $('trn').onclick=()=>{P.ru=P.ru==='mm'?'in':'mm';savePrefs();render()};
   $('tvis').onclick=()=>{P.vu=P.vu==='km'?'nm':'km';savePrefs();render()};
   if($('ttides'))$('ttides').onclick=()=>{P.wv=P.wv==='m'?'ft':'m';savePrefs();render()};
   $('twave').onclick=()=>{P.wv=P.wv==='m'?'ft':'m';savePrefs();render()};
@@ -846,7 +851,7 @@ function render(){
       if(daily)return `<em>${o.k===0?'Today':MON[+t.slice(5,7)-1]+' '+(+t.slice(8,10))}</em><span>${dow(t)}</span>`;
       const hr=+t.slice(11,13);const lab=o.k===0?'Now':(hr===0||(P.step>1&&o.k>0&&hr<P.step))?dow(t):'';
       return `<em>${lab}</em><span>${hLab(hr)}</span>`}))+
-   (alm?row('ic','Rain '+LU('mm'),cells(o=>icon(o.code,o.day)+`<small class="rp" style="color:${o.mm>=5?'#5cb8ff':o.mm>=0.5?'#cfe6fa':'#8fa0b6'}">${o.mm<10?(+o.mm).toFixed(1):Math.round(o.mm)}</small>`))+row('vis','Baro '+LU('hPa'),cells(o=>`<span class="vv" style="color:${o.baro==null?'var(--mut)':o.baro<1000?'#f6a23d':o.baro<1010?'#f6d04d':'#cfe6fa'}">${o.baro==null?'–':Math.round(o.baro)}</span>`)):
+   (alm?row('ic','Rain '+LU(P.ru),cells(o=>icon(o.code,o.day)+`<small class="rp" style="color:${o.mm>=5?'#5cb8ff':o.mm>=0.5?'#cfe6fa':'#8fa0b6'}">${((P.ru==='in')?(o.mm/25.4).toFixed(1):String(Math.round(o.mm)))}</small>`))+row('vis','Baro '+LU('hPa'),cells(o=>`<span class="vv" style="color:${o.baro==null?'var(--mut)':o.baro<1000?'#f6a23d':o.baro<1010?'#f6d04d':'#cfe6fa'}">${o.baro==null?'–':Math.round(o.baro)}</span>`)):
    row('ic','Rain '+LU('%'),cells(o=>icon(o.code,o.day)+`<small class="rp" style="color:${o.pp>=50?'#5cb8ff':o.pp>=20?'#cfe6fa':'#8fa0b6'}">${Math.round(o.pp)}%</small>`))+
    row('vis','Visi '+LU(P.vu),cells(visCell)))+
    row(alm?'tp tpa':'tp','Temp '+LU(P.t),chart)+
@@ -1179,7 +1184,7 @@ setInterval(clock,20000);
 /* ---- Help: highlight clickable features ---- */
 (function(){
   const H=document.getElementById('help');
-  const items=[['#place','Place name – choose a location on the map'],['#hstar','Star – add / remove Favorite'],['#temp','Temperature – °C / °F'],['#twind','Wind – kts / km/h / mph / m/s'],['#tvis','Visibility – km / nm'],['#twave','Waves – m / ft'],['#ttile','Tides – tap title for m / ft'],['@body','Forecast – swipe sideways for more hours / days'],['#stepb','View – Hourly / 3-Hours / 6-Hours / Daily / Almanac'],['@hrs','Time header – 12h / 24h clock'],['#favlist','Favorites – tap to switch, hold & drag to reorder, ★ removes'],['#fs','Full screen']];
+  const items=[['#place','Place name – choose a location on the map'],['#hstar','Star – add / remove Favorite'],['#temp','Temperature – °C / °F'],['#twind','Wind – kts / km/h / mph / m/s'],['#trn','Rain – mm / in'],['#tvis','Visibility – km / nm'],['#twave','Waves – m / ft'],['#ttile','Tides – tap title for m / ft'],['@body','Forecast – swipe sideways for more hours / days'],['#stepb','View – Hourly / 3-Hours / 6-Hours / Daily / Almanac'],['@hrs','Time header – 12h / 24h clock'],['#favlist','Favorites – tap to switch, hold & drag to reorder, ★ removes'],['#fs','Full screen']];
   function open(){
     let h='',l='',n=0;
     items.forEach(([q,t])=>{let r;if(q==='@body'){const rr=[...document.querySelectorAll('#rows .row')].slice(1).map(x=>x.getBoundingClientRect()),gr=document.getElementById('grid').getBoundingClientRect();if(!rr.length)return;const t0=Math.min(...rr.map(x=>x.top)),b0=Math.max(...rr.map(x=>x.bottom));r={left:gr.left+6,top:t0+10,width:gr.width-12,height:b0-t0-10}}else if(q==='@hrs'){const cs=[...document.querySelectorAll('#rows .row.hd>*:not(b)')];if(!cs.length)return;const rs=cs.map(c=>c.getBoundingClientRect());const gr=document.getElementById('grid').getBoundingClientRect(),L0=Math.max(gr.left+78*(gr.width/(document.getElementById('grid').clientWidth||gr.width)),Math.min(...rs.map(x=>x.left))),R0=Math.min(gr.right,Math.max(...rs.map(x=>x.right)));r={left:L0,top:Math.min(...rs.map(x=>x.top)),width:R0-L0,height:Math.max(...rs.map(x=>x.height))}}else{const e=document.querySelector(q);if(!e)return;r=e.getBoundingClientRect()}if(!r.width||!r.height)return;n++;
